@@ -2,86 +2,103 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const mysql = require('mysql');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const PDFDocument = require('pdfkit');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
 
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('MongoDB connected!'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Define Schemas
+const userSchema = new mongoose.Schema({
+  username: String,
+  password: String
 });
 
-db.connect(err => {
-  if (err) throw err;
-  console.log('Database connected!');
+const distributionSchema = new mongoose.Schema({
+  user_id: String,
+  amount: Number,
+  friends: String,
+  spender: String,
+  description: String,
+  distribution: Object
 });
 
-app.post('/register', (req, res) => {
-  const { username, password } = req.body;
-  const hashedPassword = bcrypt.hashSync(password, 8);
+const User = mongoose.model('User', userSchema);
+const Distribution = mongoose.model('Distribution', distributionSchema);
 
-  const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
-  db.query(query, [username, hashedPassword], (err, results) => {
-    if (err) return res.status(500).send('Server error');
+app.post('/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const hashedPassword = bcrypt.hashSync(password, 8);
+    
+    const user = new User({ username, password: hashedPassword });
+    await user.save();
+    
     res.status(200).send('User registered successfully');
-  });
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
 });
 
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  const query = 'SELECT * FROM users WHERE username = ?';
-  db.query(query, [username], (err, results) => {
-    if (err) return res.status(500).send('Server error');
-    if (results.length === 0) return res.status(404).send('User not found');
-
-    const user = results[0];
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).send('User not found');
+    
     const isPasswordValid = bcrypt.compareSync(password, user.password);
-
     if (!isPasswordValid) return res.status(401).send('Invalid password');
-
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
-      expiresIn: 86400 // 24 hours
-    });
-
+    
+    const token = jwt.sign({ id: user._id }, 'your_jwt_secret', { expiresIn: 86400 });
+    
     res.status(200).send({ auth: true, token });
-  });
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
 });
 
-app.post('/distribution', (req, res) => {
-  const { user_id, amount, friends, spender, description, distribution } = req.body;
-
-  const query = 'INSERT INTO distributions (user_id, amount, friends, spender, description, distribution) VALUES (?, ?, ?, ?, ?, ?)';
-  db.query(query, [user_id, amount, friends, spender, description, JSON.stringify(distribution)], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Failed to save distribution');
-    }
+app.post('/distribution', async (req, res) => {
+  try {
+    const { user_id, amount, friends, spender, description, distribution } = req.body;
+    
+    const newDistribution = new Distribution({
+      user_id,
+      amount,
+      friends,
+      spender,
+      description,
+      distribution
+    });
+    
+    await newDistribution.save();
     res.status(200).send('Distribution saved successfully');
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to save distribution');
+  }
 });
 
-app.get('/distributions/:userId', (req, res) => {
-  const userId = req.params.userId;
-
-  const query = 'SELECT * FROM distributions WHERE user_id = ?';
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Failed to fetch distributions');
-    }
-    res.status(200).json(results);
-  });
+app.get('/distributions/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const distributions = await Distribution.find({ user_id: userId });
+    res.status(200).json(distributions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to fetch distributions');
+  }
 });
 
 app.post('/send-distribution-email', async (req, res) => {

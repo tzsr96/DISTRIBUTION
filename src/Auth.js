@@ -12,6 +12,7 @@ function Auth({ onAuth }) {
     e.preventDefault();
     const endpoint = isLogin ? '/login' : '/register';
     try {
+      
       const response = await axios.post(`${process.env.REACT_APP_API_URL}${endpoint}`, { username, password });
       console.log(response); 
       if (isLogin) {
