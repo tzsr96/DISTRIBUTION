@@ -1,0 +1,42 @@
+.form-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    width: 30%;
+}
+
+.form-group label {
+    flex: 0 0 40%;
+    margin-right: 10px;
+}
+
+.form-group input {
+    flex: 1;
+    padding: 5px;
+}
+
+
+.buttons_dist {
+    display: flex;
+    padding: 10px;
+    cursor: pointer;
+    gap: 20px;
+}
+
+.friend-details {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.edit-button {
+    margin-left: 10px;
+    cursor: pointer;
+    color: blue;
+}
+
+button.logout-button {
+    margin-bottom: 25px;
+}
