@@ -1,5 +1,3 @@
-// backend/index.js
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
@@ -8,24 +6,19 @@ const mysql = require('mysql');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const PDFDocument = require('pdfkit');
+require('dotenv').config();
 
 const app = express();
-const port = 5000;
+const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(bodyParser.json());
 
-// app.use(cors({
-//   origin: 'http://localhost:3000', 
-//   methods: 'GET,POST,PUT,DELETE',
-//   allowedHeaders: 'Content-Type,Authorization'
-// }));
-
 const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '12345',
-  database: 'money_distribution'
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
 db.connect(err => {
@@ -33,39 +26,36 @@ db.connect(err => {
   console.log('Database connected!');
 });
 
-/// backend/index.js
-
 app.post('/register', (req, res) => {
-    const { username, password } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 8);
-  
-    const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
-    db.query(query, [username, hashedPassword], (err, results) => {
-      if (err) return res.status(500).send('Server error');
-      res.status(200).send('User registered successfully');
-    });
+  const { username, password } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 8);
+
+  const query = 'INSERT INTO users (username, password) VALUES (?, ?)';
+  db.query(query, [username, hashedPassword], (err, results) => {
+    if (err) return res.status(500).send('Server error');
+    res.status(200).send('User registered successfully');
+  });
 });
-  
+
 app.post('/login', (req, res) => {
+  const { username, password } = req.body;
 
-    const { username, password } = req.body;
+  const query = 'SELECT * FROM users WHERE username = ?';
+  db.query(query, [username], (err, results) => {
+    if (err) return res.status(500).send('Server error');
+    if (results.length === 0) return res.status(404).send('User not found');
 
-    const query = 'SELECT * FROM users WHERE username = ?';
-        db.query(query, [username], (err, results) => {
-        if (err) return res.status(500).send('Server error');
-        if (results.length === 0) return res.status(404).send('User not found');
+    const user = results[0];
+    const isPasswordValid = bcrypt.compareSync(password, user.password);
 
-        const user = results[0];
-        const isPasswordValid = bcrypt.compareSync(password, user.password);
+    if (!isPasswordValid) return res.status(401).send('Invalid password');
 
-        if (!isPasswordValid) return res.status(401).send('Invalid password');
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+      expiresIn: 86400 // 24 hours
+    });
 
-        const token = jwt.sign({ id: user.id }, 'your_jwt_secret', {
-            expiresIn: 86400 
-        });
-
-        res.status(200).send({ auth: true, token });
-        });
+    res.status(200).send({ auth: true, token });
+  });
 });
 
 app.post('/distribution', (req, res) => {
@@ -81,7 +71,6 @@ app.post('/distribution', (req, res) => {
   });
 });
 
-
 app.get('/distributions/:userId', (req, res) => {
   const userId = req.params.userId;
 
@@ -95,9 +84,7 @@ app.get('/distributions/:userId', (req, res) => {
   });
 });
 
-
 app.post('/send-distribution-email', async (req, res) => {
-  
   const { friends, friendEmails, distribution } = req.body;
 
   if (!friends || !friendEmails || !distribution) {
@@ -107,8 +94,8 @@ app.post('/send-distribution-email', async (req, res) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: 'devlopers2202@gmail.com',
-      pass: 'izoenjnnfcofpsst'
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS
     }
   });
 
@@ -147,7 +134,7 @@ app.post('/send-distribution-email', async (req, res) => {
     const pdfBuffer = await createPDF(content);
 
     const mailOptions = {
-      from: 'devlopers2202@gmail.com',
+      from: process.env.GMAIL_USER,
       to: email,
       subject: `Money Distribution Details for ${friend}`,
       text: content,
@@ -173,7 +160,6 @@ app.post('/send-distribution-email', async (req, res) => {
     res.status(500).json({ error: 'Failed to send emails.' });
   }
 });
-
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

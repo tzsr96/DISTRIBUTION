@@ -37,7 +37,7 @@ function MoneyDistribution({ onLogout }) {
 
     const fetchDistributionData = async (userId) => {
         try {
-            const response = await axios.get(`http://localhost:5000/distributions/${userId}`);
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/distributions/${userId}`);
             const { amount, friends, spender, description, distribution } = response.data;
 
             const parsedDistribution = typeof distribution === 'object' ? distribution : JSON.parse(distribution || '{}');
@@ -79,7 +79,7 @@ function MoneyDistribution({ onLogout }) {
     const saveDistributionToDatabase = async () => {
         try {
             const token = localStorage.getItem('authToken');
-            const response = await axios.post(`http://localhost:5000/distribution`, {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/distribution`, {
                 user_id: userId,
                 amount,
                 friends,
@@ -99,16 +99,14 @@ function MoneyDistribution({ onLogout }) {
     };
 
     const sendDistributionEmail = async () => {
-
         if (!friends || !friendEmails) {
             console.error('No friends or emails specified.');
             return;
         }
 
         const friendsArray = friends.split(',').map(name => name.trim());
-        
         const emailArray = friendEmails.split(',').map(email => email.trim());
-        
+
         if (friendsArray.length === 0 || emailArray.length === 0) {
             console.error('Friends list or emails list is empty.');
             return;
@@ -120,7 +118,7 @@ function MoneyDistribution({ onLogout }) {
         }
 
         try {
-            const response = await axios.post('http://localhost:5000/send-distribution-email', {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/send-distribution-email`, {
                 friends: friendsArray,
                 friendEmails: emailArray,
                 distribution
