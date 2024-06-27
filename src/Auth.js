@@ -12,7 +12,7 @@ function Auth({ onAuth }) {
     e.preventDefault();
     const endpoint = isLogin ? '/login' : '/register';
     try {
-      const response = await axios.post(`http://localhost:5000${endpoint}`, { username, password });
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}${endpoint}`, { username, password });
       console.log(response); 
       if (isLogin) {
         const token = response.data.token;
